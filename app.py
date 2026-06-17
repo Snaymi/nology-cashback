@@ -3,14 +3,14 @@ from datetime import datetime
 import os
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 
 
 load_dotenv()
 
-app = Flask(__name__, static_folder="static")
+app = Flask(__name__, static_folder="static", static_url_path="/static")
 CORS(app)
 
 database_url = os.getenv("DATABASE_URL")
@@ -93,13 +93,12 @@ def dinheiro_para_json(valor):
 
 @app.route("/")
 def index():
-    return send_from_directory("static", "index.html")
+    return app.send_static_file("index.html")
 
 
-@app.route("/static/<path:filename>")
-def static_files(filename):
-    return send_from_directory("static", filename)
-
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"})
 
 @app.route("/api/cashback", methods=["POST"])
 def calcular_e_salvar_cashback():
