@@ -6,6 +6,10 @@ Projeto desenvolvido para o desafio de estágio em desenvolvimento da Nology.
 
 https://nology-cashback.onrender.com
 
+## Repositório
+
+https://github.com/Snaymi/nology-cashback
+
 ## Descrição
 
 Este projeto consiste em uma calculadora de cashback para uma fintech. O sistema aplica as regras de negócio informadas no desafio:
@@ -48,13 +52,13 @@ Este projeto consiste em uma calculadora de cashback para uma fintech. O sistema
 1. Clone o repositório:
 
 ```bash
-git clone LINK_DO_REPOSITORIO
+git clone https://github.com/Snaymi/nology-cashback.git
 ```
 
 2. Acesse a pasta do projeto:
 
 ```bash
-cd NOME_DA_PASTA
+cd nology-cashback
 ```
 
 3. Crie e ative um ambiente virtual:
@@ -89,13 +93,25 @@ Exemplo usando Postgres local:
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/nology_cashback
 ```
 
-6. Execute o projeto:
+6. Caso queira usar Postgres local via Docker, execute:
+
+```bash
+docker run --name nology-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=nology_cashback -p 5432:5432 -d postgres
+```
+
+Caso o container já exista e esteja parado:
+
+```bash
+docker start nology-postgres
+```
+
+7. Execute o projeto:
 
 ```bash
 python app.py
 ```
 
-7. Acesse no navegador:
+8. Acesse no navegador:
 
 ```txt
 http://localhost:5000
