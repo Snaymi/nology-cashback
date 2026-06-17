@@ -39,6 +39,7 @@ Este projeto consiste em uma calculadora de cashback para uma fintech. O sistema
 .
 ├── app.py
 ├── cashback.py
+├── .env.example
 ├── requirements.txt
 ├── static
 │   ├── index.html
@@ -86,6 +87,8 @@ pip install -r requirements.txt
 ```
 
 5. Configure a variável de ambiente `DATABASE_URL` em um arquivo `.env`.
+
+Você pode copiar o arquivo `.env.example` para `.env` e ajustar a URL do banco, se necessário.
 
 Exemplo usando Postgres local:
 

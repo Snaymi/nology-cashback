@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import SQLAlchemyError
 
 
 load_dotenv()
@@ -14,11 +15,22 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 CORS(app)
 
 database_url = os.getenv("DATABASE_URL")
+database_configurada = bool(database_url)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+if not database_configurada:
+    app.logger.warning(
+        "DATABASE_URL nao configurado. Configure a variavel de ambiente para usar o banco."
+    )
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url or "sqlite:///:memory:"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
+
+MENSAGEM_ERRO_BANCO = (
+    "Nao foi possivel acessar o banco de dados no momento. "
+    "Tente novamente em alguns segundos."
+)
 
 
 class ConsultaCashback(db.Model):
@@ -91,6 +103,14 @@ def dinheiro_para_json(valor):
     return f"{Decimal(valor):.2f}"
 
 
+def banco_esta_configurado():
+    if database_configurada:
+        return True
+
+    app.logger.error("DATABASE_URL nao configurado. Operacao de banco bloqueada.")
+    return False
+
+
 @app.route("/")
 def index():
     return app.send_static_file("index.html")
@@ -123,6 +143,9 @@ def calcular_e_salvar_cashback():
     except Exception:
         return jsonify({"erro": "Valor do produto ou desconto inválido."}), 400
 
+    if not valor_produto.is_finite() or not percentual_desconto.is_finite():
+        return jsonify({"erro": "Valor do produto ou desconto inválido."}), 400
+
     if valor_produto <= 0:
         return jsonify({"erro": "O valor do produto deve ser maior que zero."}), 400
 
@@ -132,6 +155,9 @@ def calcular_e_salvar_cashback():
     cliente_vip = tipo_cliente == "vip"
     resultado = calcular_cashback(valor_produto, percentual_desconto, cliente_vip)
     ip_usuario = obter_ip_usuario()
+
+    if not banco_esta_configurado():
+        return jsonify({"erro": MENSAGEM_ERRO_BANCO}), 500
 
     consulta = ConsultaCashback(
         ip_usuario=ip_usuario,
@@ -146,8 +172,13 @@ def calcular_e_salvar_cashback():
         promocao_aplicada=resultado["promocao_aplicada"],
     )
 
-    db.session.add(consulta)
-    db.session.commit()
+    try:
+        db.session.add(consulta)
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        app.logger.exception("Erro ao salvar consulta de cashback no banco.")
+        return jsonify({"erro": MENSAGEM_ERRO_BANCO}), 500
 
     return jsonify({
         "tipo_cliente": tipo_cliente,
@@ -166,13 +197,21 @@ def calcular_e_salvar_cashback():
 def listar_historico():
     ip_usuario = obter_ip_usuario()
 
-    consultas = (
-        ConsultaCashback.query
-        .filter_by(ip_usuario=ip_usuario)
-        .order_by(ConsultaCashback.criado_em.desc())
-        .limit(20)
-        .all()
-    )
+    if not banco_esta_configurado():
+        return jsonify({"erro": MENSAGEM_ERRO_BANCO}), 500
+
+    try:
+        consultas = (
+            ConsultaCashback.query
+            .filter_by(ip_usuario=ip_usuario)
+            .order_by(ConsultaCashback.criado_em.desc())
+            .limit(20)
+            .all()
+        )
+    except SQLAlchemyError:
+        db.session.rollback()
+        app.logger.exception("Erro ao consultar historico de cashback no banco.")
+        return jsonify({"erro": MENSAGEM_ERRO_BANCO}), 500
 
     historico = []
 
@@ -191,8 +230,12 @@ def listar_historico():
     return jsonify(historico)
 
 
-with app.app_context():
-    db.create_all()
+if database_configurada:
+    with app.app_context():
+        try:
+            db.create_all()
+        except SQLAlchemyError:
+            app.logger.exception("Erro ao criar ou validar tabelas no banco.")
 
 
 if __name__ == "__main__":
